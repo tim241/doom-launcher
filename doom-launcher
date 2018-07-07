@@ -1,0 +1,260 @@
+#!/usr/bin/env bash
+#
+# doom-launcher - https://gitlab.com/tim241/doom-launcher
+#
+# Copyright (C) 2018 Tim Wanders <timwanders241@gmail.com>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Program properties
+program="doom-launcher"
+dep_commands=('dialog' 'gzdoom')
+
+function error() {
+	echo "[ERROR] $*"
+	exit 1
+}
+
+function prepare() {
+	local dep_program
+	local directory
+	if [ ! "$HOME" ]; then
+		error 'variable missing: HOME'
+	fi
+
+	if [ ! "$XDG_CONFIG_HOME" ]; then
+		XDG_CONFIG_HOME="$HOME/.config"
+	fi
+
+	if [ ! "$XDG_CACHE_HOME" ]; then
+		XDG_CACHE_HOME="$HOME/.cache"
+	fi
+
+	config_dir="$XDG_CONFIG_HOME/$program"
+	config_dir_mods="$config_dir/mods"
+	cache_dir="$XDG_CACHE_HOME/$program"
+
+	for directory in "$config_dir" "$cache_dir" "$config_dir_mods"; do
+		if [ ! -d "$directory" ]; then
+			if ! mkdir -p "$directory"; then
+				error "failed to create directory: '$directory'"
+			fi
+		fi
+	done
+
+	for dep_program in "${dep_commands[@]}"; do
+		if ! command -v "$dep_program" > /dev/null 2>&1; then
+			error "missing program: '$dep_program'"
+		fi
+	done
+}
+
+function isNew() {
+	if [ -f "$config_dir/${program}.conf" ]; then
+		return 1
+	else
+		return 0
+	fi
+}
+
+function msgbox() {
+	if [ ! "$size" ]; then
+		size="0 0"
+	fi
+	dialog --msgbox "$@" $size
+}
+
+function launch_doom() {
+	clear
+	if [ ! -f "$cache_dir/launch.sh" ]; then
+		chmod=yes
+	fi
+	for mod_file in "${mod_files[@]}"; do
+		base_args+=("-file \"$mod_file\"")
+	done
+	echo "gzdoom -iwad \"$base_wad\" ${base_args[@]}" > "$cache_dir/launch.sh"
+	if [ "$chmod" = "yes" ]; then
+		chmod +x "$cache_dir/launch.sh"
+	fi
+	echo "Launching gzdoom, arguments: 'iwad \"$base_wad\" ${base_args[@]}'"
+	"$cache_dir/launch.sh" > "$cache_dir/gzdoom_output.log" 2>&1
+	menu_main
+}
+
+function menu_main() {
+	if [ ! "$base_wad" ]; then
+		arg_word="Select"
+	else
+		arg_word="Change"
+	fi
+	input="$(dialog --stdout --nocancel \
+		--title "doom-launcher" \
+		--menu "Main menu" \
+		15 48 5\
+		1 "Launch doom" \
+		2 "$arg_word IWAD" \
+		3 "Select mod profile" \
+		4 "Add mod profile" \
+		5 "Quit")"
+	if [ "$?" != "0" ]; then
+		error "failed to create main menu"
+	fi
+	case "$input" in 
+		1) launch_doom;;
+		2) menu_base_select;;
+		3) menu_mod_select;;
+		4) menu_mod_add;;
+		5) clear; exit;;
+	esac
+}
+
+function menu_mod_select() {
+	mod_amount=0
+	mod_selection_files=("/dev/null")
+	mod_selection=""
+	while IFS= read -r file
+	do
+		source "$file"
+		if [ "x$mod_name" != "x" ] && \
+			[ "x${mod_files[0]}" != "x" ]
+		then
+			((mod_amount++))
+			mod_selection+=("$mod_amount ${mod_name/ /_}")
+			mod_selection_files+=("$file")
+		fi
+		unset mod_files mod_name
+	done < <(find "$config_dir_mods" -type f)
+	if ! input="$(dialog --stdout \
+			--title "menu_mod_select" \
+			--menu "Select mod profile" \
+			15 48 $mod_amount \
+			${mod_selection[@]})"
+	then
+		menu_main
+	fi
+	source "${mod_selection_files[$input]}"
+	echo "mod_profile='${mod_selection_files[$input]}'" > "$cache_dir/profile"
+	menu_main
+}
+
+function menu_mod_add() {
+	if [ ! "$mod_name" ]; then
+		arg_word="Add"
+	else
+		arg_word="Change"
+	fi
+	if ! input="$(dialog --stdout \
+		--title "menu_mod_add" \
+		--menu "Add mod profile" \
+		15 48 3 \
+		1 "$arg_word name" \
+		2 "Add files" \
+		3 "Save")" 
+	then
+		menu_main
+	fi
+	case "$input" in 
+		1) menu_mod_add_name; menu_mod_add;;
+		2) menu_mod_add_files;;
+		3) menu_mod_add_save;;
+	esac	
+}
+
+function menu_mod_add_name() {
+	mod_name="$(dialog --stdout \
+		--title "menu_mod_add_name" \
+		--inputbox "$arg_word name" \
+		10 10 "$mod_name")"
+}
+
+function menu_mod_add_files() {
+	input="$(dialog --stdout --nocancel \
+		--title "menu_mod_add_files" \
+		--menu "Add files" \
+		15 48 2 \
+		1 "Add file" \
+		2 "finish")"
+	case "$input" in 
+		1) menu_mod_add_file;;
+		2) menu_mod_add;;
+	esac
+}
+
+function menu_mod_add_file() {
+	if ! mod_file="$(dialog --stdout \
+			--fselect "$HOME/" 10 50)"
+	then
+		menu_mod_add_files
+	fi
+	if [ ! -f "$mod_file" ]; then
+		size="5 30" msgbox "Invalid file, try again"
+		menu_mod_add_file
+	else
+		mod_files+=("$mod_file")
+		menu_mod_add_files
+	fi
+}
+
+function menu_mod_add_save() {
+	if [ ! "$mod_files" ] || \
+		[ ! "$mod_name" ]
+	then
+		msgbox "Missing information"
+		menu_mod_add
+	else
+		first=yes
+		config_file_name="$config_dir_mods/$RANDOM.conf"
+		while [ -f "$config_file_name" ]
+		do
+			config_file_name="$config_dir_mods/$RANDOM.conf"
+		done
+		echo "mod_name='$mod_name'" > "$config_file_name"
+		for file in "${mod_files[@]}"; do
+			if [ "$first" = "yes" ]; then
+				first=no
+				echo "mod_files=('$file')"
+			else
+				echo "mod_files+=('$file')"
+			fi 
+		done >> "$config_file_name"
+	fi
+
+}
+
+function menu_base_select() {
+	if ! base_wad="$(dialog --stdout \
+		--fselect "$HOME/" 10 50)"
+	then
+		menu_main
+	fi
+	echo "base_wad='$base_wad'" > "$config_dir/${program}.conf"
+	menu_main
+}
+
+prepare
+
+if isNew; then
+	size="5 30" msgbox "Welcome to doom-launcher!"
+else
+	source "$config_dir/${program}.conf"
+fi
+
+if [ -f "$cache_dir/profile" ]; then
+	source "$cache_dir/profile"
+	if [ -f "$mod_profile" ]; then
+		source "$mod_profile"
+	fi
+fi
+
+menu_main
