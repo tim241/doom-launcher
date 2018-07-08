@@ -91,10 +91,13 @@ function launch_doom() {
 	fi
 	echo "Launching gzdoom, arguments: 'iwad \"$base_wad\" ${base_args[@]}'"
 	"$cache_dir/launch.sh" > "$cache_dir/gzdoom_output.log" 2>&1
+	unload_profile
 	menu_main
 }
 
 function menu_main() {
+	# Make sure profile is not loaded
+	unload_profile
 	mod_arg_word="Select"
 	if [ -f "$cache_dir/profile" ]; then
 		source "$cache_dir/profile"
@@ -149,6 +152,11 @@ function menu_mod_select() {
 		fi
 		unset mod_files mod_name
 	done < <(find "$config_dir_mods" -type f)
+	if [ ! "$mod_selection_files" ] && \
+		[ ! "$mod_selection" ]
+	then
+		size="5 40" msgbox "No mod profile found, please add one"
+	fi
 	if ! input="$(dialog --stdout \
 			--title "menu_mod_select" \
 			--menu "Select mod profile" \
@@ -190,6 +198,7 @@ function menu_mod_add_name() {
 		--title "menu_mod_add_name" \
 		--inputbox "$arg_word name" \
 		10 10 "$mod_name")"
+	mod_name="${mod_name/ /_}"
 }
 
 function menu_mod_add_files() {
@@ -228,11 +237,11 @@ function menu_mod_add_save() {
 		menu_mod_add
 	else
 		first=yes
-		config_file_name="$config_dir_mods/$RANDOM.conf"
-		while [ -f "$config_file_name" ]
-		do
-			config_file_name="$config_dir_mods/$RANDOM.conf"
-		done
+		config_file_name="$config_dir_mods/${mod_name/ /_}.conf"
+		if [ -f "$config_file_name" ]; then
+			size="7 50" msgbox "A profile with that name already exists.\\n\\nPlease choose another name"
+			menu_mod_add
+		fi
 		echo "mod_name='$mod_name'" > "$config_file_name"
 		for file in "${mod_files[@]}"; do
 			if [ "$first" = "yes" ]; then
@@ -264,6 +273,10 @@ function load_profile() {
 			source "$mod_profile"
 		fi
 	fi
+}
+
+function unload_profile() {
+	unset mod_files mod_name
 }
 
 prepare
