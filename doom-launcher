@@ -21,6 +21,10 @@
 program="doom-launcher"
 dep_commands=('dialog' 'gzdoom')
 
+# Default settings
+noprofile=no
+arg_cli=no
+
 function error() {
 	echo "[ERROR] $*"
 	exit 1
@@ -76,8 +80,12 @@ function msgbox() {
 }
 
 function launch_doom() {
-	clear
-	load_profile
+	if [ "$arg_cli" = "no" ]; then
+		clear
+	fi
+	if [ "$noprofile" = "no" ]; then
+		load_profile
+	fi
 	unset base_args
 	if [ ! -f "$cache_dir/launch.sh" ]; then
 		chmod=yes
@@ -89,10 +97,12 @@ function launch_doom() {
 	if [ "$chmod" = "yes" ]; then
 		chmod +x "$cache_dir/launch.sh"
 	fi
-	echo "Launching gzdoom, arguments: 'iwad \"$base_wad\" ${base_args[@]}'"
+	echo "Launching gzdoom, arguments: '-iwad \"$base_wad\" ${base_args[@]}'"
 	"$cache_dir/launch.sh" > "$cache_dir/gzdoom_output.log" 2>&1
 	unload_profile
-	menu_main
+	if [ "$arg_cli" = "no" ]; then
+		menu_main
+	fi
 }
 
 function menu_main() {
@@ -267,6 +277,20 @@ function menu_base_select() {
 }
 
 function load_profile() {
+	if [ "$1" ] && \
+		[ -f "$1" ]
+	then
+		source "$1"
+		return
+	elif [ "$1" ] && [ ! -f "$1" ]; then
+		if [ -f "$config_dir_mods/$1.conf" ]; then
+			source "$config_dir_mods/$1.conf"
+			return
+		elif [ -f "$config_dir_mods/$1" ]; then
+			source "$config_dir_mods/$1"
+			return
+		fi
+	fi
 	if [ -f "$cache_dir/profile" ]; then
 		source "$cache_dir/profile"
 		if [ -f "$mod_profile" ]; then
@@ -279,6 +303,21 @@ function unload_profile() {
 	unset mod_files mod_name
 }
 
+function parse_arguments() {
+	for arg in $@
+	do
+		case $arg in
+			--profile=*)
+				noprofile=yes
+				load_profile "${arg/--profile=/}";;
+			--launch)
+				arg_cli=yes
+				launch_doom
+				exit;;
+		esac
+	done
+
+}
 prepare
 
 if isNew; then
@@ -286,5 +325,7 @@ if isNew; then
 else
 	source "$config_dir/${program}.conf"
 fi
+
+parse_arguments "$@"
 
 menu_main
