@@ -86,6 +86,9 @@ function launch_doom() {
 	if [ "$noprofile" = "no" ]; then
 		load_profile
 	fi
+	if [ ! "$mod_iwad" ]; then
+		mod_iwad="$base_wad"
+	fi
 	unset base_args
 	if [ ! -f "$cache_dir/launch.sh" ]; then
 		chmod=yes
@@ -93,11 +96,11 @@ function launch_doom() {
 	for mod_file in "${mod_files[@]}"; do
 		base_args+=("-file \"$mod_file\"")
 	done
-	echo "gzdoom -iwad \"$base_wad\" ${base_args[@]}" > "$cache_dir/launch.sh"
+	echo "gzdoom -iwad \"$mod_iwad\" ${base_args[@]}" > "$cache_dir/launch.sh"
 	if [ "$chmod" = "yes" ]; then
 		chmod +x "$cache_dir/launch.sh"
 	fi
-	echo "Launching gzdoom, arguments: '-iwad \"$base_wad\" ${base_args[@]}'"
+	echo "Launching gzdoom, arguments: '-iwad \"$mod_iwad\" ${base_args[@]}'"
 	"$cache_dir/launch.sh" > "$cache_dir/gzdoom_output.log" 2>&1
 	unload_profile
 	if [ "$arg_cli" = "no" ]; then
@@ -148,35 +151,89 @@ function menu_mod_select() {
 	do
 		source "$file"
 		if [ "x$mod_name" != "x" ] && \
-			[ "x${mod_files[0]}" != "x" ]
+			[ "x${mod_files[0]}" != "x" ] && \
+			[ "x${mod_iwad}" != "x" ]
 		then
 			((mod_amount++))
 			if [ "$first" = "yes" ]; then
 				mod_selection=("$mod_amount ${mod_name/ /_}")
+				mod_wads=("${mod_iwad}")
 				mod_selection_files=("$file")
 				first=no
 			else
 				mod_selection+=("$mod_amount ${mod_name/ /_}")
+				mod_wads+=("${mod_iwad}")
 				mod_selection_files+=("$file")
 			fi
 		fi
-		unset mod_files mod_name
+		unset mod_files mod_name mod_iwad
 	done < <(find "$config_dir_mods" -type f)
+
+	iwad_amount=0
+	first=yes
+	for iwad in "${mod_wads[@]}"; do
+		duplicate=no
+		for _iwad in "${mod_uniq_iwads[@]}"; do
+			[ "$_iwad" = "$iwad" ] && duplicate=yes
+		done
+		if [ "$duplicate" = "no" ]; then
+			((iwad_amount++))
+			if [ "$first" = "yes" ]; then
+				mod_un_iwads=("$iwad_amount ${iwad/ /_}")
+				mod_uniq_iwads=("$iwad")
+				first=no
+			else
+				mod_un_iwads+=("$iwad_amount ${iwad/ /_}")
+				mod_uniq_iwads+=("$iwad")
+			fi
+		fi
+	done
+
 	if [ ! "$mod_selection_files" ] && \
-		[ ! "$mod_selection" ]
+		[ ! "$mod_selection" ] && \
+		[ ! "$mod_wad" ]
 	then
 		size="5 40" msgbox "No mod profile found, please add one"
 	fi
+
 	if ! input="$(dialog --stdout \
 			--title "menu_mod_select" \
-			--menu "Select mod profile" \
-			15 48 $mod_amount \
-			${mod_selection[@]})"
+			--menu "Select IWAD" \
+			20 60 20 \
+			${mod_un_iwads[@]})"
 	then
 		menu_main
 	fi
+
+	i=0
+	amount=0
+	first=yes
+	for iwad in "${mod_wads[@]}"; do
+		if [ "${mod_uniq_iwads[(($input -1))]}" = "$iwad" ]; then
+			((amount++))
+			if [ "$first" = "yes" ]; then
+				mod_selection2=("$amount $(echo "${mod_selection[$i]}"  | cut -d' ' -f2)")
+				mod_selection_files2=("${mod_selection_files[$i]}")
+				first=no
+			else
+				mod_selection2+=("$amount $(echo "${mod_selection[$i]}" | cut -d' ' -f2)")
+				mod_selection_files2+=("${mod_selection_files[$i]}")
+			fi
+		fi
+		((i++))
+	done
+	
+	if ! input="$(dialog --stdout \
+			--title "menu_mod_select" \
+			--menu "Select mod profile" \
+			20 60 $((${#mod_selection2[@]} + 1)) \
+			${mod_selection2[@]})"
+	then
+		menu_main
+	fi
+
 	source "${mod_selection_files[$input]}"
-	echo "mod_profile='${mod_selection_files[(($input - 1))]}'" > "$cache_dir/profile"
+	echo "mod_profile='${mod_selection_files2[(($input - 1))]}'" > "$cache_dir/profile"
 	menu_main
 }
 
@@ -189,18 +246,20 @@ function menu_mod_add() {
 	if ! input="$(dialog --stdout \
 		--title "menu_mod_add" \
 		--menu "Add mod profile" \
-		15 48 3 \
+		15 48 4 \
 		1 "$arg_word name" \
 		2 "Add files" \
-		3 "Save")" 
+		3 "Change IWAD" \
+		4 "Save")" 
 	then
 		menu_main
 	fi
 	case "$input" in 
 		1) menu_mod_add_name; menu_mod_add;;
 		2) menu_mod_add_files;;
-		3) menu_mod_add_save;;
-	esac	
+		3) menu_mod_slect_iwad;; 
+		4) menu_mod_add_save;;
+	esac
 }
 
 function menu_mod_add_name() {
@@ -240,6 +299,9 @@ function menu_mod_add_file() {
 }
 
 function menu_mod_add_save() {
+	if [ ! "$mod_iwad" ]; then
+		mod_iwad="$base_wad"
+	fi
 	if [ ! "$mod_files" ] || \
 		[ ! "$mod_name" ]
 	then
@@ -261,8 +323,9 @@ function menu_mod_add_save() {
 				echo "mod_files+=('$file')"
 			fi 
 		done >> "$config_file_name"
+		echo "mod_iwad='$mod_iwad'" >> "$config_file_name"
 	fi
-	unset mod_files mod_name
+	unset mod_files mod_name mod_iwad
 	menu_main
 }
 
@@ -274,6 +337,20 @@ function menu_base_select() {
 	fi
 	echo "base_wad='$base_wad'" > "$config_dir/${program}.conf"
 	menu_main
+}
+
+function menu_mod_slect_iwad() {
+	if ! mod_iwad="$(dialog --stdout \
+			--fselect "$HOME/" 10 50)"
+	then
+		menu_mod_add
+	fi
+	if [ ! -f "$mod_file" ]; then
+		size="5 30" msgbox "Invalid file, try again"
+		menu_mod_add
+	else
+		menu_mod_add
+	fi
 }
 
 function load_profile() {
@@ -300,7 +377,7 @@ function load_profile() {
 }
 
 function unload_profile() {
-	unset mod_files mod_name
+	unset mod_files mod_name mod_iwad
 }
 
 function parse_arguments() {
