@@ -77,6 +77,8 @@ function msgbox() {
 
 function launch_doom() {
 	clear
+	load_profile
+	unset base_args
 	if [ ! -f "$cache_dir/launch.sh" ]; then
 		chmod=yes
 	fi
@@ -93,6 +95,13 @@ function launch_doom() {
 }
 
 function menu_main() {
+	mod_arg_word="Select"
+	if [ -f "$cache_dir/profile" ]; then
+		source "$cache_dir/profile"
+		if [ -f "$mod_profile" ]; then
+			mod_arg_word="Change"
+		fi
+	fi
 	if [ ! "$base_wad" ]; then
 		arg_word="Select"
 	else
@@ -104,7 +113,7 @@ function menu_main() {
 		15 48 5\
 		1 "Launch doom" \
 		2 "$arg_word IWAD" \
-		3 "Select mod profile" \
+		3 "$mod_arg_word mod profile" \
 		4 "Add mod profile" \
 		5 "Quit")"
 	if [ "$?" != "0" ]; then
@@ -121,8 +130,7 @@ function menu_main() {
 
 function menu_mod_select() {
 	mod_amount=0
-	mod_selection_files=("/dev/null")
-	mod_selection=""
+	first=yes
 	while IFS= read -r file
 	do
 		source "$file"
@@ -130,8 +138,14 @@ function menu_mod_select() {
 			[ "x${mod_files[0]}" != "x" ]
 		then
 			((mod_amount++))
-			mod_selection+=("$mod_amount ${mod_name/ /_}")
-			mod_selection_files+=("$file")
+			if [ "$first" = "yes" ]; then
+				mod_selection=("$mod_amount ${mod_name/ /_}")
+				mod_selection_files=("$file")
+				first=no
+			else
+				mod_selection+=("$mod_amount ${mod_name/ /_}")
+				mod_selection_files+=("$file")
+			fi
 		fi
 		unset mod_files mod_name
 	done < <(find "$config_dir_mods" -type f)
@@ -144,7 +158,7 @@ function menu_mod_select() {
 		menu_main
 	fi
 	source "${mod_selection_files[$input]}"
-	echo "mod_profile='${mod_selection_files[$input]}'" > "$cache_dir/profile"
+	echo "mod_profile='${mod_selection_files[(($input - 1))]}'" > "$cache_dir/profile"
 	menu_main
 }
 
@@ -229,7 +243,8 @@ function menu_mod_add_save() {
 			fi 
 		done >> "$config_file_name"
 	fi
-
+	unset mod_files mod_name
+	menu_main
 }
 
 function menu_base_select() {
@@ -242,19 +257,21 @@ function menu_base_select() {
 	menu_main
 }
 
+function load_profile() {
+	if [ -f "$cache_dir/profile" ]; then
+		source "$cache_dir/profile"
+		if [ -f "$mod_profile" ]; then
+			source "$mod_profile"
+		fi
+	fi
+}
+
 prepare
 
 if isNew; then
 	size="5 30" msgbox "Welcome to doom-launcher!"
 else
 	source "$config_dir/${program}.conf"
-fi
-
-if [ -f "$cache_dir/profile" ]; then
-	source "$cache_dir/profile"
-	if [ -f "$mod_profile" ]; then
-		source "$mod_profile"
-	fi
 fi
 
 menu_main
