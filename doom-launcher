@@ -345,7 +345,7 @@ function menu_mod_slect_iwad() {
 	then
 		menu_mod_add
 	fi
-	if [ ! -f "$mod_file" ]; then
+	if [ ! -f "$mod_iwad" ]; then
 		size="5 30" msgbox "Invalid file, try again"
 		menu_mod_add
 	else
@@ -387,6 +387,8 @@ function parse_arguments() {
 			--profile=*)
 				noprofile=yes
 				load_profile "${arg/--profile=/}";;
+			--nomods)
+				noprofile=yes;;
 			--launch)
 				arg_cli=yes
 				launch_doom
