@@ -10,15 +10,15 @@ license=('GPL3')
 
 provides=('doom-launcher')
 conflicts=('doom-launcher')
-depends=('bash' 'dialog' 'gzdoom')
+depends=('bash' 'dialog' 'gzdoom' 'sed')
 
 source=("git+https://gitlab.com/tim241/${_pkgname}.git")
 
 sha256sums=('SKIP')
 
 pkgver() {
-    cd "$_pkgname"
-    git describe --always | sed -e 's|-|.|g'
+	cd "$_pkgname"
+	git describe --always | sed -e 's|-|.|g'
 }
 
 package() {
