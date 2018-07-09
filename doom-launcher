@@ -100,7 +100,7 @@ function launch_doom() {
 	if [ "$chmod" = "yes" ]; then
 		chmod +x "$cache_dir/launch.sh"
 	fi
-	echo "Launching gzdoom, arguments: '-iwad \"$mod_iwad\" ${base_args[@]}'"
+	echo "Launching gzdoom, arguments: '-iwad \"$mod_iwad\" ${base_args[@]} $mod_args'"
 	"$cache_dir/launch.sh" > "$cache_dir/gzdoom_output.log" 2>&1
 	unload_profile
 	if [ "$arg_cli" = "no" ]; then
@@ -166,7 +166,7 @@ function menu_mod_select() {
 				mod_selection_files+=("$file")
 			fi
 		fi
-		unset mod_files mod_name mod_iwad
+		unset mod_files mod_name mod_iwad mod_args
 	done < <(find "$config_dir_mods" -type f)
 
 	iwad_amount=0
@@ -243,14 +243,20 @@ function menu_mod_add() {
 	else
 		arg_word="Change"
 	fi
+	if [ ! "$mod_args" ]; then
+		arg_word2="Add"
+	else
+		arg_word2="Change"
+	fi
 	if ! input="$(dialog --stdout \
 		--title "menu_mod_add" \
 		--menu "Add mod profile" \
-		15 48 4 \
+		15 48 5 \
 		1 "$arg_word name" \
 		2 "Add files" \
 		3 "Change IWAD" \
-		4 "Save")" 
+		4 "$arg_word2 arguments" \
+		5 "Save")" 
 	then
 		menu_main
 	fi
@@ -258,8 +264,16 @@ function menu_mod_add() {
 		1) menu_mod_add_name; menu_mod_add;;
 		2) menu_mod_add_files;;
 		3) menu_mod_slect_iwad;; 
-		4) menu_mod_add_save;;
+		4) menu_mod_add_args; menu_mod_add;;
+		5) menu_mod_add_save;;
 	esac
+}
+
+function menu_mod_add_args() {
+	mod_args="$(dialog --stdout \
+			--title "menu_mod_add_args" \
+			--inputbox "$arg_word2 arguments" \
+			10 10 "$mod_args")"
 }
 
 function menu_mod_add_name() {
@@ -324,9 +338,10 @@ function menu_mod_add_save() {
 			fi 
 		done >> "$config_file_name"
 		echo "mod_iwad=\"$mod_iwad\"" >> "$config_file_name"
+		echo "mod_args=\"$mod_args\"" >> "$config_file_name"
 		sed -i "s|$HOME|\$HOME|g" "$config_file_name"
 	fi
-	unset mod_files mod_name mod_iwad
+	unset mod_files mod_name mod_iwad mod_args
 	menu_main
 }
 
@@ -378,7 +393,7 @@ function load_profile() {
 }
 
 function unload_profile() {
-	unset mod_files mod_name mod_iwad
+	unset mod_files mod_name mod_iwad mod_args
 }
 
 function parse_arguments() {
