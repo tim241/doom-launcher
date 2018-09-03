@@ -96,6 +96,10 @@ function launch_doom() {
 	for mod_file in "${mod_files[@]}"; do
 		base_args+=("-file \"$mod_file\"")
 	done
+    if [ ! "$mod_name" ]
+    then
+        base_args+=("-savedir \"$save_dir/$mod_name\"")
+    fi
 	echo "gzdoom -iwad \"$mod_iwad\" ${base_args[@]}" > "$cache_dir/launch.sh"
 	if [ "$chmod" = "yes" ]; then
 		chmod +x "$cache_dir/launch.sh"
@@ -156,12 +160,12 @@ function menu_mod_select() {
 		then
 			((mod_amount++))
 			if [ "$first" = "yes" ]; then
-				mod_selection=("$mod_amount ${mod_name/ /_}")
+				mod_selection=("$mod_amount ${mod_name// /_}")
 				mod_wads=("${mod_iwad}")
 				mod_selection_files=("$file")
 				first=no
 			else
-				mod_selection+=("$mod_amount ${mod_name/ /_}")
+				mod_selection+=("$mod_amount ${mod_name// /_}")
 				mod_wads+=("${mod_iwad}")
 				mod_selection_files+=("$file")
 			fi
@@ -179,11 +183,11 @@ function menu_mod_select() {
 		if [ "$duplicate" = "no" ]; then
 			((iwad_amount++))
 			if [ "$first" = "yes" ]; then
-				mod_un_iwads=("$iwad_amount ${iwad/ /_}")
+				mod_un_iwads=("$iwad_amount ${iwad// /_}")
 				mod_uniq_iwads=("$iwad")
 				first=no
 			else
-				mod_un_iwads+=("$iwad_amount ${iwad/ /_}")
+				mod_un_iwads+=("$iwad_amount ${iwad// /_}")
 				mod_uniq_iwads+=("$iwad")
 			fi
 		fi
@@ -281,7 +285,7 @@ function menu_mod_add_name() {
 		--title "menu_mod_add_name" \
 		--inputbox "$arg_word name" \
 		10 10 "$mod_name")"
-	mod_name="${mod_name/ /_}"
+	mod_name="${mod_name// /_}"
 }
 
 function menu_mod_add_files() {
@@ -323,7 +327,7 @@ function menu_mod_add_save() {
 		menu_mod_add
 	else
 		first=yes
-		config_file_name="$config_dir_mods/${mod_name/ /_}.conf"
+		config_file_name="$config_dir_mods//${mod_name// /_}.conf"
 		if [ -f "$config_file_name" ]; then
 			size="7 50" msgbox "A profile with that name already exists.\\n\\nPlease choose another name"
 			menu_mod_add
@@ -419,6 +423,16 @@ if isNew; then
 	size="5 30" msgbox "Welcome to doom-launcher!"
 else
 	source "$config_dir/${program}.conf"
+fi
+
+if [ ! "$save_dir" ]
+then
+    save_dir="$config_dir/saves"
+fi
+
+if [ ! -d "$save_dir" ]
+then
+    mkdir -p "$save_dir"
 fi
 
 parse_arguments "$@"
