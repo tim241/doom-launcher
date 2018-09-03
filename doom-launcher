@@ -96,7 +96,7 @@ function launch_doom() {
 	for mod_file in "${mod_files[@]}"; do
 		base_args+=("-file \"$mod_file\"")
 	done
-    if [ ! "$mod_name" ]
+    if [ "$mod_name" ]
     then
         base_args+=("-savedir \"$save_dir/$mod_name\"")
     fi
