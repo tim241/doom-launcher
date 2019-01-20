@@ -100,14 +100,14 @@ function launch_doom() {
     then
         base_args+=("-savedir \"$save_dir/$mod_name\"")
     fi
-    if [ ! "$mod_gzdoom" ]; then
-        mod_gzdoom="gzdoom"
+    if [ ! "$mod_engine" ]; then
+        mod_engine="gzdoom"
     fi
-    echo "$mod_gzdoom -iwad \"$mod_iwad\" ${base_args[@]}" > "$cache_dir/launch.sh"
+    echo "$mod_engine -iwad \"$mod_iwad\" ${base_args[@]}" > "$cache_dir/launch.sh"
     if [ "$chmod" = "yes" ]; then
         chmod +x "$cache_dir/launch.sh"
     fi
-    echo "Launching $mod_gzdoom, arguments: '-iwad \"$mod_iwad\" ${base_args[@]} $mod_args'"
+    echo "Launching $mod_engine, arguments: '-iwad \"$mod_iwad\" ${base_args[@]} $mod_args'"
     "$cache_dir/launch.sh" > "$cache_dir/gzdoom_output.log" 2>&1
     unload_profile
     if [ "$arg_cli" = "no" ]; then
@@ -263,7 +263,7 @@ function menu_mod_add() {
         2 "Add files" \
         3 "Change IWAD" \
         4 "$arg_word2 arguments" \
-        5 "Change gzdoom" \
+        5 "Change engine" \
         6 "Save")" 
     then
         menu_main
@@ -286,14 +286,14 @@ function menu_mod_add_args() {
 }
 
 function menu_mod_change_gzdoom() {
-    if [ ! "$mod_gzdoom" ]
+    if [ ! "$mod_engine" ]
     then
-        mod_gzdoom="gzdoom"
+        mod_engine="gzdoom"
     fi
-    mod_gzdoom="$(dialog --stdout \
+    mod_engine="$(dialog --stdout \
         --title "menu_mod_change_gzdoom" \
         --inputbox "Change gzdoom"\
-        10 10 "$mod_gzdoom")"
+        10 10 "$mod_engine")"
 }
 
 function menu_mod_add_name() {
