@@ -359,7 +359,7 @@ function menu_mod_add_save() {
         done >> "$config_file_name"
         echo "mod_iwad=\"$mod_iwad\"" >> "$config_file_name"
         echo "mod_args=\"$mod_args\"" >> "$config_file_name"
-        echo "mod_gzdoom=\"$mod_gzdoom\"" >> "$config_file_name"
+        echo "mod_engine=\"$mod_engine\"" >> "$config_file_name"
         sed -i "s|$HOME|\$HOME|g" "$config_file_name"
     fi
     unset mod_files mod_name mod_iwad mod_args
@@ -414,7 +414,7 @@ function load_profile() {
 }
 
 function unload_profile() {
-    unset mod_files mod_name mod_iwad mod_args mod_gzdoom
+    unset mod_files mod_name mod_iwad mod_args mod_engine
 }
 
 function parse_arguments() {
