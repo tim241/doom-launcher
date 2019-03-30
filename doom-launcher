@@ -292,7 +292,7 @@ function menu_mod_change_gzdoom() {
     fi
     mod_engine="$(dialog --stdout \
         --title "menu_mod_change_gzdoom" \
-        --inputbox "Change gzdoom"\
+        --inputbox "Change engine"\
         10 10 "$mod_engine")"
 }
 
